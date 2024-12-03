@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM 推理框架对比</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-8 text-center">LLM 推理框架对比「大数据基础 B 第八组」</h1>
+
+        <!-- Tabs -->
+        <div class="mb-8">
+            <div class="border-b border-gray-200">
+                <nav class="-mb-px flex">
+                    <button class="tab-btn active bg-white inline-block p-4 text-blue-600 border-b-2 border-blue-600 rounded-t-lg" data-tab="playground">
+                        实时推理
+                    </button>
+                    <button class="tab-btn bg-white inline-block p-4 text-gray-600 border-b-2 border-transparent rounded-t-lg" data-tab="benchmark">
+                        性能对比
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Playground Tab -->
+        <div id="playground" class="tab-content">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Input Section -->
+                <div class="bg-white p-6 rounded-lg shadow-lg">
+                    <h2 class="text-xl font-semibold mb-4">输入</h2>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="model-select">
+                            选择模型
+                        </label>
+                        <select id="model-select" class="w-full px-3 py-2 border rounded-lg">
+                            {% for model in models %}
+                            <option value="{{ model }}">{{ model }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="max-tokens">
+                            最大生成长度
+                        </label>
+                        <input type="number" id="max-tokens" value="100" min="1" max="2000"
+                               class="w-full px-3 py-2 border rounded-lg">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="prompt">
+                            输入文本
+                        </label>
+                        <textarea id="prompt" rows="5" 
+                                  class="w-full px-3 py-2 border rounded-lg"
+                                  placeholder="请输入您的提问..."></textarea>
+                    </div>
+                    <button id="generate-btn" 
+                            class="w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600">
+                        生成
+                    </button>
+                </div>
+
+                <!-- Output Section -->
+                <div class="bg-white p-6 rounded-lg shadow-lg">
+                    <h2 class="text-xl font-semibold mb-4">输出</h2>
+                    <div id="output" class="mb-4 h-64 overflow-y-auto p-4 border rounded-lg">
+                        <p class="text-gray-500">输出将在这里显示...</p>
+                    </div>
+                    
+                    <!-- Metrics Display -->
+                    <div class="border-t pt-4">
+                        <h3 class="font-semibold mb-2">性能指标</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-sm text-gray-600">首个Token延迟 (TTFT):</p>
+                                <p id="metric-ttft" class="font-mono">-</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">平均Token延迟 (TPOT):</p>
+                                <p id="metric-tpot" class="font-mono">-</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">吞吐量:</p>
+                                <p id="metric-throughput" class="font-mono">-</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">显存使用:</p>
+                                <p id="metric-memory" class="font-mono">-</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">总耗时:</p>
+                                <p id="metric-total-time" class="font-mono">-</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">生成Token数:</p>
+                                <p id="metric-num-tokens" class="font-mono">-</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Benchmark Tab -->
+        <div id="benchmark" class="tab-content hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                <!-- Throughput Chart -->
+                <div class="bg-white p-6 rounded-lg shadow-lg">
+                    <h2 class="text-xl font-semibold mb-4">吞吐量</h2>
+                    {{ charts.throughput | safe }}
+                </div>
+                
+                <!-- Memory Usage Chart -->
+                <div class="bg-white p-6 rounded-lg shadow-lg">
+                    <h2 class="text-xl font-semibold mb-4">显存使用</h2>
+                    {{ charts.memory | safe }}
+                </div>
+            </div>
+            
+            <!-- Latency Chart -->
+            <div class="bg-white p-6 rounded-lg shadow-lg">
+                <h2 class="text-xl font-semibold mb-4">延迟指标</h2>
+                {{ charts.latency | safe }}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tab switching
+        document.querySelectorAll('.tab-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                // Remove active class from all buttons and hide all content
+                document.querySelectorAll('.tab-btn').forEach(btn => {
+                    btn.classList.remove('active', 'text-blue-600', 'border-blue-600');
+                    btn.classList.add('text-gray-600', 'border-transparent');
+                });
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.add('hidden');
+                });
+                
+                // Add active class to clicked button and show corresponding content
+                button.classList.add('active', 'text-blue-600', 'border-blue-600');
+                button.classList.remove('text-gray-600', 'border-transparent');
+                document.getElementById(button.dataset.tab).classList.remove('hidden');
+            });
+        });
+
+        // Text generation handling
+        document.getElementById('generate-btn').addEventListener('click', async () => {
+            const button = document.getElementById('generate-btn');
+            const output = document.getElementById('output');
+            
+            // Disable button and show loading state
+            button.disabled = true;
+            button.innerHTML = '生成中...';
+            output.innerHTML = '<p class="text-gray-500">正在生成...</p>';
+            
+            try {
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model: document.getElementById('model-select').value,
+                        prompt: document.getElementById('prompt').value,
+                        max_tokens: parseInt(document.getElementById('max-tokens').value)
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    output.innerHTML = `<p class="text-red-500">错误: ${data.error}</p>`;
+                } else {
+                    // Display output
+                    output.innerHTML = marked.parse(data.output);
+                    
+                    // Update metrics
+                    document.getElementById('metric-ttft').textContent = data.metrics.ttft;
+                    document.getElementById('metric-tpot').textContent = data.metrics.tpot;
+                    document.getElementById('metric-throughput').textContent = data.metrics.throughput;
+                    document.getElementById('metric-memory').textContent = data.metrics.memory;
+                    document.getElementById('metric-total-time').textContent = data.metrics.total_time;
+                    document.getElementById('metric-num-tokens').textContent = data.metrics.num_tokens;
+                }
+            } catch (error) {
+                output.innerHTML = `<p class="text-red-500">请求错误: ${error}</p>`;
+            } finally {
+                // Re-enable button
+                button.disabled = false;
+                button.innerHTML = '生成';
+            }
+        });
+
+        // Check model status on page load
+        async function checkModelStatus() {
+            try {
+                const response = await fetch('/get_model_status');
+                const status = await response.json();
+                
+                const select = document.getElementById('model-select');
+                const options = select.options;
+                
+                for (let i = 0; i < options.length; i++) {
+                    const modelName = options[i].value;
+                    if (!status[modelName]) {
+                        options[i].disabled = true;
+                        options[i].text += ' (加载中...)';
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking model status:', error);
+            }
+        }
+
+        window.addEventListener('load', checkModelStatus);
+    </script>
+</body>
+</html>

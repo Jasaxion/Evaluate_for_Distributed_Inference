@@ -1,0 +1,59 @@
+models:
+  # - name: "THUDM/chatglm2-6b"
+  #   type: "decoder"
+  #   framework: "baseline"
+  #   trust_remote_code: true
+    
+  - name: "THUDM/chatglm3-6b"
+    type: "decoder"
+    framework: "baseline"
+    trust_remote_code: true
+    
+  - name: "mistralai/Mistral-7B-v0.1"
+    type: "decoder"
+    framework: "baseline"
+    
+  - name: "meta-llama/Llama-2-7b-chat-hf"
+    type: "decoder"
+    framework: "baseline"
+
+generation_config:
+  max_new_tokens: 100
+  temperature: 0.7
+  top_p: 0.9
+  do_sample: true
+  # ChatGLM specific settings
+  chat_template: true  # Enable chat template for chat models
+
+benchmark_config:
+  num_samples: 1000
+  batch_sizes: [1]  # For baseline testing
+  warmup_iterations: 3
+  test_iterations: 5
+  
+  # Test scenarios
+  scenarios:
+    - short_response:  # Quick replies, 50-100 tokens
+        max_new_tokens: 100
+        num_samples: 200
+    - medium_response:  # Medium length responses, 200-300 tokens
+        max_new_tokens: 300
+        num_samples: 200
+    - long_response:  # Longer responses, 500+ tokens
+        max_new_tokens: 500
+        num_samples: 100
+
+data_config:
+  dataset_path: "data/sample_conversations.json"
+  max_input_length: 512
+  
+output_config:
+  results_dir: "results"
+  plots_dir: "plots"
+
+hardware_config:
+  device: "cuda"
+  precision: "float16"
+  # Memory optimization
+  use_gradient_checkpointing: true
+  max_memory: null  # Will be automatically determined
