@@ -10,6 +10,13 @@ sys.path.append(str(Path(__file__).parent.parent))
 from llm_bench.frameworks.baseline.huggingface_pipeline import HuggingFacePipeline
 from llm_bench.utils.timer import Timer
 
+"""
+fixtures有几个好处：
+代码复用：多个测试可以共享同一个框架实例
+资源管理：pytest自动处理fixtures的设置和清理
+依赖注入：测试函数可以方便地访问所需的对象
+避免重复初始化：减少测试时间和资源消耗
+"""
 @pytest.fixture
 def config():
     """Load test configuration."""
@@ -20,7 +27,7 @@ def config():
 @pytest.fixture
 def model_name():
     """Return test model name."""
-    return "THUDM/chatglm2-6b"  # Using smallest model for testing
+    return "THUDM/chatglm3-6b"  # Using smallest model for testing
 
 @pytest.fixture
 def baseline_framework(model_name):
@@ -32,10 +39,11 @@ def baseline_framework(model_name):
     )
     return framework
 
+# pytest 的命名规则以 test_ 开头
 def test_framework_initialization(baseline_framework):
     """Test framework initialization."""
     assert baseline_framework is not None
-    assert baseline_framework.model_name == "THUDM/chatglm2-6b"
+    assert baseline_framework.model_name == "THUDM/chatglm3-6b"
     assert baseline_framework.device in ["cuda", "cpu"]
 
 def test_model_loading(baseline_framework):
@@ -51,6 +59,7 @@ def test_text_generation(baseline_framework):
     # Test with a simple prompt
     prompt = "Hello, how are you?"
     result = baseline_framework.generate(prompt, max_new_tokens=20)
+    print(result)
     
     # Check result structure
     assert isinstance(result, dict)
@@ -99,6 +108,7 @@ def test_timer_integration(baseline_framework):
     total_time = timer.stop()
     assert total_time > 0
 
+# 参数化测试
 @pytest.mark.parametrize("max_tokens", [10, 50, 100])
 def test_different_generation_lengths(baseline_framework, max_tokens):
     """Test generation with different lengths."""
@@ -108,3 +118,4 @@ def test_different_generation_lengths(baseline_framework, max_tokens):
 
 if __name__ == "__main__":
     pytest.main([__file__])
+# [__file__] 表示 运行当前文件中的所有测试

@@ -1,7 +1,7 @@
 import time
 from typing import Dict, Any, Optional
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, TextGenerationPipeline
+from transformers import AutoModel, AutoTokenizer, TextGenerationPipeline
 import torch.nn as nn
 
 from llm_bench.core.base_framework import BaseFramework
@@ -14,6 +14,8 @@ class HuggingFacePipeline(BaseFramework):
         super().__init__(model_name, device)
         self.trust_remote_code = kwargs.get('trust_remote_code', False)
         self.chat_template = kwargs.get('chat_template', False)
+
+        self._preferred_device = device
         
     def load_model(self) -> None:
         """Load model and tokenizer using transformers."""
@@ -22,6 +24,8 @@ class HuggingFacePipeline(BaseFramework):
             self.model_name,
             trust_remote_code=self.trust_remote_code
         )
+        if "chatglm" in self.model_name.lower():
+            self.tokenizer.eos_token = "</s>"
         
         # Configure model loading parameters
         model_kwargs = {
@@ -35,7 +39,7 @@ class HuggingFacePipeline(BaseFramework):
             self.tokenizer.pad_token = self.tokenizer.eos_token
         
         # Load the model
-        self.model = AutoModelForCausalLM.from_pretrained(
+        self.model = AutoModel.from_pretrained(
             self.model_name,
             **model_kwargs
         )
@@ -47,9 +51,16 @@ class HuggingFacePipeline(BaseFramework):
         # Create pipeline
         self.pipeline = TextGenerationPipeline(
             model=self.model,
-            tokenizer=self.tokenizer,
-            device=self.device
+            tokenizer=self.tokenizer
+            # device=self.device
         )
+    
+    def get_actual_device(self) -> torch.device:
+        """Get the actual device where the model's first parameter resides."""
+        try:
+            return next(self.model.parameters()).device
+        except StopIteration:
+            return torch.device(self._preferred_device)
 
     def format_prompt(self, prompt: str) -> str:
         """Format prompt according to model's requirements."""
@@ -72,7 +83,8 @@ class HuggingFacePipeline(BaseFramework):
         formatted_prompt = self.format_prompt(prompt)
         
         # Tokenize input
-        input_ids = self.tokenizer.encode(formatted_prompt, return_tensors="pt").to(self.device)
+        actual_device = self.get_actual_device()
+        input_ids = self.tokenizer.encode(formatted_prompt, return_tensors="pt").to(actual_device)
         
         # Track memory before generation
         initial_memory = self.get_memory_usage()
@@ -102,7 +114,13 @@ class HuggingFacePipeline(BaseFramework):
         total_time = timer.stop()
         
         # Calculate metrics
-        output_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+        if "chatglm" in self.model_name.lower():
+            output_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+            # 移除可能的前缀
+            output_text = output_text.replace("[gMASK] sop", "").strip()
+        else:
+            output_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+        # output_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
         num_new_tokens = len(outputs[0]) - len(input_ids[0])
         
         peak_memory = self.get_memory_usage()
@@ -133,10 +151,10 @@ class HuggingFacePipeline(BaseFramework):
         """Clear GPU memory cache."""
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-            if hasattr(self.model, "cpu"):
-                with torch.no_grad():
-                    self.model.cpu()
-            torch.cuda.empty_cache()
-            if hasattr(self.model, "to"):
-                with torch.no_grad():
-                    self.model.to(self.device)
+            # if hasattr(self.model, "cpu"):
+            #     with torch.no_grad():
+            #         self.model.cpu()
+            # torch.cuda.empty_cache()
+            # if hasattr(self.model, "to"):
+            #     with torch.no_grad():
+            #         self.model.to(self.device)
