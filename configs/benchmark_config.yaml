@@ -30,18 +30,6 @@ benchmark_config:
   batch_sizes: [1]  # For baseline testing
   warmup_iterations: 3
   test_iterations: 5
-  
-  # Test scenarios
-  scenarios:
-    - short_response:  # Quick replies, 50-100 tokens
-        max_new_tokens: 100
-        num_samples: 200
-    - medium_response:  # Medium length responses, 200-300 tokens
-        max_new_tokens: 300
-        num_samples: 200
-    - long_response:  # Longer responses, 500+ tokens
-        max_new_tokens: 500
-        num_samples: 100
 
 data_config:
   dataset_path: "data/sample_conversations.json"
