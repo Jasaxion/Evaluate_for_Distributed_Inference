@@ -1,7 +1,7 @@
 import time
 from typing import Dict, Any, Optional
 import torch
-from transformers import AutoModel, AutoTokenizer, TextGenerationPipeline
+from transformers import AutoModelForCausalLM, AutoTokenizer, TextGenerationPipeline
 import torch.nn as nn
 
 from llm_bench.core.base_framework import BaseFramework
@@ -39,7 +39,7 @@ class HuggingFacePipeline(BaseFramework):
             self.tokenizer.pad_token = self.tokenizer.eos_token
         
         # Load the model
-        self.model = AutoModel.from_pretrained(
+        self.model = AutoModelForCausalLM.from_pretrained(
             self.model_name,
             **model_kwargs
         )

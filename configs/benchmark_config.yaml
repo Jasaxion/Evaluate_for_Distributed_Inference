@@ -1,21 +1,13 @@
 models:
-  # - name: "THUDM/chatglm2-6b"
-  #   type: "decoder"
-  #   framework: "baseline"
-  #   trust_remote_code: true
-    
+
   - name: "THUDM/chatglm3-6b"
     type: "decoder"
     framework: "baseline"
     trust_remote_code: true
     
-  # - name: "mistralai/Mistral-7B-v0.1"
-  #   type: "decoder"
-  #   framework: "baseline"
-    
-  # - name: "meta-llama/Llama-2-7b-chat-hf"
-  #   type: "decoder"
-  #   framework: "baseline"
+  - name: "mistralai/Mistral-7B-v0.1"
+    type: "decoder"
+    framework: "baseline"
 
 generation_config:
   max_new_tokens: 100
